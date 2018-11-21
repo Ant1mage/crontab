@@ -1,6 +1,8 @@
 package master
 
 import (
+	"context"
+	"encoding/json"
 	"github.com/SugarAlex/crontab/common"
 	"go.etcd.io/etcd/clientv3"
 	"time"
@@ -17,7 +19,7 @@ var (
 	G_jobMgr *JobMgr
 )
 
-func InitJobMgr(err error) {
+func InitJobMgr() (err error) {
 	var (
 		config clientv3.Config
 		client *clientv3.Client
@@ -31,6 +33,7 @@ func InitJobMgr(err error) {
 	if client, err = clientv3.New(config); err != nil {
 		return
 	}
+	// 得到kv和lease的api子集
 	kv = clientv3.NewKV(client)
 	lease = clientv3.NewLease(client)
 
@@ -43,6 +46,29 @@ func InitJobMgr(err error) {
 	return
 }
 
+// 保存任务
 func (jobMgr *JobMgr) SaveJob(job *common.Job) (oldJob *common.Job, err error) {
-
+	var (
+		jobKey    string
+		jobValue  []byte
+		putResp   *clientv3.PutResponse
+		oldJobObj common.Job
+	)
+	jobKey = "/cron/job/" + job.Name
+	if jobValue, err = json.Marshal(&job); err != nil {
+		return
+	}
+	// 保存到etcd
+	if putResp, err = jobMgr.kv.Put(context.TODO(), jobKey, string(jobValue), clientv3.WithPrevKV()); err != nil {
+		return
+	}
+	// 如果是更新,返回旧值
+	if putResp.PrevKv != nil {
+		if err = json.Unmarshal(putResp.PrevKv.Value, &oldJobObj); err != nil {
+			err = nil
+			return
+		}
+		oldJob = &oldJobObj
+	}
+	return
 }
