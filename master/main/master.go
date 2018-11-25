@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/SugarAlex/crontab/master"
 	"runtime"
+	"time"
 )
 
 var (
@@ -45,6 +46,9 @@ func main() {
 	// 启动api http服务
 	if err = master.InitApiServer(); err != nil {
 		goto ERR
+	}
+	for {
+		time.Sleep(1 * time.Second)
 	}
 	// 正常退出
 	return
